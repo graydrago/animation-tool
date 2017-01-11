@@ -1,0 +1,17 @@
+{
+  "dependencies": {
+    "css-loader": "^0.26.1",
+    "node-static": "^0.7.9",
+    "style-loader": "^0.13.1",
+    "ts-loader": "^1.3.3",
+    "typescript": "^2.1.4",
+    "webpack": "^1.14.0"
+  },
+  "scripts": {
+    "server": "webpack && node ./build/server/main.js"
+  },
+  "devDependencies": {
+    "html-webpack-plugin": "^2.26.0",
+    "webpack-node-externals": "^1.5.4"
+  }
+}

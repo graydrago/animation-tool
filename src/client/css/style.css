@@ -1,0 +1,59 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  min-width: 500px;
+}
+
+.scene-wrapper {
+  display: flex;
+  min-width: 500px;
+}
+
+.roster {
+  width: 200px;
+  min-height: 600px;
+  border: 1px solid red;
+  flex: 0 0 200px;
+}
+
+.scene {
+  width: calc(100% - 200px);
+  min-height: 600px;
+  border: 1px solid green;
+  flex: 0 0 calc(100% - 200px);
+  position: relative;
+}
+
+.timeline {
+  border: 1px solid blue; 
+  min-height: 100px;
+}
+
+.roster__item {
+  width: 100%;
+  min-height: 24px;
+}
+
+.roster__item img {
+  width: 24px;
+  height: 24px;
+  float: left;
+}
+
+.roster__item .name {
+  font-size: 20px;
+}
+
+.timeline {
+  padding: 5px;
+}
+
+.timeline__select-property {
+  min-width: 100px;
+}
+
+.timeline input[type=text] {
+  max-width: 70px;
+}
