@@ -137,37 +137,60 @@ function createImageForScene(src : string) : HTMLImageElement {
 
 function dropFile(evt: DragEvent) {
   stopEvent(evt);
+  console.log("HERO");
 
   for (let file of evt.dataTransfer.files) {
     let reader = new FileReader();
     reader.onload = (evt) => {
-      let imageSrc = evt.target.result;
-      let image = createImageForScene(imageSrc);
-      let fileName = file.name;
-      image.setAttribute("data-name", fileName);
-      image.setAttribute("data-id", counter_of_elements.toString());
+      let saved_counter = counter_of_elements;
       counter_of_elements++;
-      scene_elem.appendChild(image);
+      let fileName = file.name;
 
-      let rosterItem = createItemForRoster(imageSrc, fileName);
-      setCurrentSceneElement(image, fileName);
-      rosterItem.addEventListener("click", () => {
+      sendFile(fileName, reader.result, () => {
+        let imageSrc = `/work_dir/img/${fileName}`;
+        let image = createImageForScene(imageSrc);
+        image.setAttribute("data-name", fileName);
+        image.setAttribute("data-id", saved_counter.toString());
+        scene_elem.appendChild(image);
+
+        let rosterItem = createItemForRoster(imageSrc, fileName);
         setCurrentSceneElement(image, fileName);
-      });
-      roster_elem.appendChild(rosterItem);
+        rosterItem.addEventListener("click", () => {
+          setCurrentSceneElement(image, fileName);
+        });
+        roster_elem.appendChild(rosterItem);
 
-      //let animation = animationBuilder(image).property("translateX").startValue(0).endValue(200).build();
-      animation_list.push(animationBuilder(image).property("translateX").startValue(0).endValue(300).startTime(0).endTime(0.5).build());
-      animation_list.push(animationBuilder(image).property("translateY").startValue(0).endValue(300).startTime(0.5).endTime(1).build());
-      //animation_list.push(animationBuilder(image).property("rotateZ").startValue(0).endValue(Math.random() > 0.5 ? 360 : -360).build());
-      //animation_list.push(animationBuilder(image).property("rotateY").startValue(0).endValue(Math.random() > 0.5 ? 360 : -360).build());
-      //animation_list.push(animationBuilder(image).property("rotateX").startValue(0).endValue(Math.random() > 0.5 ? 360 : -360).build());
-      //animation_list.push(animationBuilder(image).property("scaleY").startValue(1).endValue(4).build());
-      //animation_list.push(animationBuilder(image).property("scaleX").startValue(1).endValue(4).build());
-      updateTimeline();
+        //let animation = animationBuilder(image).property("translateX").startValue(0).endValue(200).build();
+        animation_list.push(animationBuilder(image).property("translateX").startValue(0).endValue(300).startTime(0).endTime(0.5).build());
+        animation_list.push(animationBuilder(image).property("translateY").startValue(0).endValue(300).startTime(0.5).endTime(1).build());
+        //animation_list.push(animationBuilder(image).property("rotateZ").startValue(0).endValue(Math.random() > 0.5 ? 360 : -360).build());
+        //animation_list.push(animationBuilder(image).property("rotateY").startValue(0).endValue(Math.random() > 0.5 ? 360 : -360).build());
+        //animation_list.push(animationBuilder(image).property("rotateX").startValue(0).endValue(Math.random() > 0.5 ? 360 : -360).build());
+        //animation_list.push(animationBuilder(image).property("scaleY").startValue(1).endValue(4).build());
+        //animation_list.push(animationBuilder(image).property("scaleX").startValue(1).endValue(4).build());
+        updateTimeline();
+      });
+
     };
-    reader.readAsDataURL(file);
+    reader.readAsBinaryString(file);
   }
+}
+
+function sendFile(fileName, blob, cb) {
+  let sender = new XMLHttpRequest();
+  //var base64_data = base64_full.replace(/.*,/, "");
+
+  sender.open("POST", "/ajax", true);
+  sender.setRequestHeader("Content-Type", "multipart/form-data");
+  sender.setRequestHeader("X-File-Name", fileName);
+  sender.setRequestHeader("X-File-Size", blob.length);
+  sender.onreadystatechange = () => {
+    if (sender.readyState == 4) {
+      console.log(JSON.parse(sender.responseText));
+      cb();
+    }
+  };
+  sender.send(blob);
 }
 
 function animationBuilder(element: HTMLElement) {
@@ -260,7 +283,6 @@ function run() {
 }
 
 window.addEventListener("load", () => {
-  console.log("HELLO");
   roster_elem = document.querySelector("#roster");
   scene_elem = document.querySelector("#scene");
   initTimeline();

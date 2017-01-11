@@ -28,12 +28,17 @@ module.exports = [
   },
   {
     context: __dirname,
-    entry: "./src/server/main.js",
+    entry: "./src/server/main.ts",
     target: "node",
     externals: [nodeExternals()],
     output: {
       path: __dirname + "/build/server",
       filename: "main.js"
+    },
+    module: {
+      loaders: [
+        { test: /\.tsx?$/, loader: 'ts-loader' }
+      ]
     },
     devtool: "source-map"
   }
