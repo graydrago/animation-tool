@@ -34,6 +34,7 @@ body {
 .roster__item {
   width: 100%;
   min-height: 24px;
+  cursor: pointer;
 }
 
 .roster__item img {

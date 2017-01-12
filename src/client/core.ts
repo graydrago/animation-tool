@@ -1,4 +1,5 @@
 import "./css/style.css";
+import * as Stats from "stats.js";
 
 let roster_elem = null;
 let scene_elem = null;
@@ -8,6 +9,8 @@ let current_scene_element_name : string = null;
 let file_list = {};
 let counter_of_elements = 1;
 let animation_list = [];
+let map_of_scene_objects = {};
+let stats = null;
 let list_of_properties = [
   "translateX",
   "translateY",
@@ -24,16 +27,29 @@ function log(...args: any[]) {
   console.log(args);
 }
 
+function values_of_object(obj) {
+  let result = [];
+  for (let i in obj) {
+    result.push(obj[i]);
+  }
+  return  result;
+}
+
+function basename(path) {
+   let items = path.split('/');
+   return items[items.length - 1];
+}
+
 function stopEvent(evt: Event) {
   evt.preventDefault();
   evt.stopPropagation();
 }
 
-function createItemForRoster(imageSrc : string, fileName: string) : HTMLElement {
+function createItemForRoster(element_meta) : HTMLElement {
   let item = document.createElement("div");
   item.innerHTML = `
-    <img src="${imageSrc}">
-    <span class="name">${fileName}</span>
+    <img src="${element_meta.image}">
+    <span class="name">${element_meta.name}</span>
   `;
   item.classList.add("roster__item")
 
@@ -55,9 +71,8 @@ function setCurrentSceneElement(item: HTMLElement, name: string) {
 
 function createTimelineElement(timeline_item) {
   let wrapper : HTMLDivElement = document.createElement("div");
-  let object_name = timeline_item.element.getAttribute("data-name");
   wrapper.innerHTML = `
-    <span class="scene-object-name">${object_name}<span>
+    <span class="scene-object-name">${timeline_item.target}</span>
     <span class="property-params">
       <span class="property-name">${timeline_item.property}</span>
       <input type="text" class="property-from" value="${timeline_item.startValue}"></input>
@@ -110,7 +125,10 @@ function initTimeline() {
     let scene_object_name = getCurrentSceneElementName();
     let selected_property_name = property_selector_elem.options[property_selector_elem.selectedIndex].value;
 
-    animation_list.push(animationBuilder(current_scene_element).property(selected_property_name).build());
+    animation_list.push(animationBuilder(current_scene_element)
+                        .property(selected_property_name)
+                        .target(getCurrentSceneElementName())
+                        .build());
     updateTimeline();
   });
 }
@@ -161,8 +179,8 @@ function dropFile(evt: DragEvent) {
         roster_elem.appendChild(rosterItem);
 
         //let animation = animationBuilder(image).property("translateX").startValue(0).endValue(200).build();
-        animation_list.push(animationBuilder(image).property("translateX").startValue(0).endValue(300).startTime(0).endTime(0.5).build());
-        animation_list.push(animationBuilder(image).property("translateY").startValue(0).endValue(300).startTime(0.5).endTime(1).build());
+        //animation_list.push(animationBuilder(image).property("translateX").startValue(0).endValue(300).startTime(0).endTime(0.5).build());
+        //animation_list.push(animationBuilder(image).property("translateY").startValue(0).endValue(300).startTime(0.5).endTime(1).build());
         //animation_list.push(animationBuilder(image).property("rotateZ").startValue(0).endValue(Math.random() > 0.5 ? 360 : -360).build());
         //animation_list.push(animationBuilder(image).property("rotateY").startValue(0).endValue(Math.random() > 0.5 ? 360 : -360).build());
         //animation_list.push(animationBuilder(image).property("rotateX").startValue(0).endValue(Math.random() > 0.5 ? 360 : -360).build());
@@ -178,24 +196,78 @@ function dropFile(evt: DragEvent) {
 
 function sendFile(fileName, blob, cb) {
   let sender = new XMLHttpRequest();
-  //var base64_data = base64_full.replace(/.*,/, "");
 
-  sender.open("POST", "/ajax", true);
+  sender.open("POST", "/uploadfile", true);
   sender.setRequestHeader("Content-Type", "multipart/form-data");
   sender.setRequestHeader("X-File-Name", fileName);
   sender.setRequestHeader("X-File-Size", blob.length);
   sender.onreadystatechange = () => {
     if (sender.readyState == 4) {
       console.log(JSON.parse(sender.responseText));
-      cb();
+      if (cb) {
+        cb();
+      }
     }
   };
   sender.send(blob);
 }
 
+function sendAnimation(cb = null) {
+  let sending_animation_list = [];
+  let image_name = '';
+  let url_parser: HTMLAnchorElement = document.createElement('a');
+
+  for (let animation of animation_list) {
+    url_parser.href = animation.element.src;
+    sending_animation_list.push({
+      image_name: basename(url_parser.pathname),
+      property: animation.property,
+      startValue: animation.startValue,
+      endValue: animation.endValue,
+      startTime: animation.startTime,
+      endTime: animation.endTime,
+      easing: animation.easing
+    });
+  }
+  sendJson({animations: sending_animation_list}, cb);
+}
+
+function sendJson(obj, cb) {
+  let sender = new XMLHttpRequest();
+
+  sender.open("POST", "/uploadjson", true);
+  sender.setRequestHeader("Content-Type", "aplication/json");
+  sender.onreadystatechange = () => {
+    if (sender.readyState == 4) {
+      console.log(JSON.parse(sender.responseText));
+      if (cb) {
+        cb();
+      }
+    }
+  };
+  sender.send(JSON.stringify(obj, null, 2));
+}
+
+function requestJson(path: string, cb) {
+  let sender = new XMLHttpRequest();
+
+  sender.open("GET", path, true);
+  sender.onreadystatechange = () => {
+    if (sender.readyState == 4) {
+      let json_data = JSON.parse(sender.responseText);
+      if (cb) {
+        cb(json_data);
+      }
+    }
+  };
+  sender.send();
+
+}
+
 function animationBuilder(element: HTMLElement) {
   let new_item = {
     element: element,
+    target: "",
     property: "",
     startValue: 0,
     endValue: 0,
@@ -206,6 +278,7 @@ function animationBuilder(element: HTMLElement) {
 
   return new function () {
     this.property = (value) => { new_item.property = value; return this; },
+    this.target = (value) => { new_item.target = value; return this; },
     this.startValue = (value) => { new_item.startValue = value; return this; },
     this.endValue = (value) => { new_item.endValue = value; return this; },
     this.startTime = (value) => { new_item.startTime = value; return this; },
@@ -225,6 +298,7 @@ function run() {
   let elapsed_seconds = 0;
 
   let render = (timestamp) => {
+    stats.begin();
     elapsed_seconds += (timestamp - startTime) * 0.001;
     if (elapsed_seconds > 1) {
       elapsed_seconds = 0;
@@ -234,14 +308,18 @@ function run() {
     let transforms_wrapper = {}
     for (let item of animation_list) {
       let range = item.endValue;
-      let item_id = item.element.getAttribute("data-id");
+      let item_id = item.target;
 
       if (elapsed_seconds < item.startTime) {
         range = item.startValue;
       } else if (elapsed_seconds > item.endTime) {
         range = item.endValue;
       } else if (item.endValue - item.startValue !== 0) {
-        range = (item.endValue - item.startValue) * ((elapsed_seconds - item.startTime)/(item.endTime - item.startTime));
+        if (item.endValue > item.startValue) {
+          range = (item.endValue - item.startValue) * ((elapsed_seconds - item.startTime)/(item.endTime - item.startTime));
+        } else {
+          range = (item.startValue - item.endValue) * (1 - (elapsed_seconds - item.startTime)/(item.endTime - item.startTime));
+        }
       } 
 
       if (!transforms_wrapper[item_id]) {
@@ -270,22 +348,83 @@ function run() {
       }
     }
 
-    for (let transforms_obj of Object.values(transforms_wrapper)) {
+    for (let transforms_obj of values_of_object(transforms_wrapper)) {
       if (transforms_obj.transforms.length > 0) {
         transforms_obj.element.style.transform = transforms_obj.transforms.join(" ");
       }
     }
 
+    stats.end();
     requestAnimationFrame(render);
   };
 
   requestAnimationFrame(render);
 }
 
+function updateRoster() {
+  roster_elem.innerHTML = "";
+  for (let key in map_of_scene_objects) {
+    let obj = map_of_scene_objects[key];
+    let roster_item = createItemForRoster(obj);
+    roster_elem.appendChild(roster_item);
+    roster_item.addEventListener("click", () => {
+      setCurrentSceneElement(obj.element, obj.name);
+      document.querySelector(".timeline__current-object").innerHTML = obj.name;
+    });
+  }
+}
+
+function setupScene(json_data) {
+  scene_elem.innerHTML = "";
+
+  log(json_data);
+
+  let scene_objects = {};
+
+  for (let obj of json_data.objects) {
+    let img_src = `/work_dir/img/${obj.image}`;
+    let dom_elem = createImageForScene(img_src);
+    scene_objects[obj.name] = dom_elem;
+    map_of_scene_objects[obj.name] = {
+      name: obj.name,
+      image: img_src,
+      element: dom_elem
+    }
+    scene_elem.appendChild(dom_elem);
+  }
+
+  for (let obj of json_data.animations) {
+    animation_list.push(animationBuilder(scene_objects[obj.target])
+                        .property(obj.property)
+                        .target(obj.target)
+                        .startValue(obj.startValue)
+                        .endValue(obj.endValue)
+                        .startTime(obj.startTime)
+                        .endTime(obj.endTime)
+                        .easing(obj.easing)
+                        .build());
+  }
+}
+
 window.addEventListener("load", () => {
+  let save_animation_button = document.querySelector(".save-animation");
   roster_elem = document.querySelector("#roster");
   scene_elem = document.querySelector("#scene");
+  stats = new Stats();
+  stats.showPanel(0);
+  document.body.appendChild(stats.dom);
   initTimeline();
+
+  //save_animation_button.addEventListener("click", () => {
+    //sendAnimation(() => {
+      //console.log("Animation has been saved");
+    //});
+  //});
+  requestJson("/work_dir/animations/animation.json", (json) => {
+    setupScene(json);
+    updateTimeline();
+    updateRoster();
+  });
 
   scene_elem.addEventListener("drop", dropFile, false);
   scene_elem.addEventListener("dragenter", stopEvent, false);
